@@ -67,30 +67,30 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
         print(self.rabi_period)
 
         pihalf_y_element = self._get_mw_rf_element(length=self.rabi_period / 4,
-                                                        increment=0,
-                                                        amp1=self.microwave_amplitude,
-                                                        freq1=self.microwave_frequency,
-                                                        phase1=90,
-                                                        amp2=0.0,
-                                                        freq2=self.microwave_frequency,
-                                                        phase2=0)
+                                                   increment=0,
+                                                   amp1=self.microwave_amplitude,
+                                                   freq1=self.microwave_frequency,
+                                                   phase1=90,
+                                                   amp2=0.0,
+                                                   freq2=self.microwave_frequency,
+                                                   phase2=0)
         last_pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                        increment=0,
-                                                        amp1=self.microwave_amplitude,
-                                                        freq1=self.microwave_frequency,
-                                                        phase1=90,
-                                                        amp2=0.0,
-                                                        freq2=self.microwave_frequency,
-                                                        phase2=0)
+                                                             increment=0,
+                                                             amp1=self.microwave_amplitude,
+                                                             freq1=self.microwave_frequency,
+                                                             phase1=90,
+                                                             amp2=0.0,
+                                                             freq2=self.microwave_frequency,
+                                                             phase2=0)
 
-        pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                            increment=0,
-                                                            amp1=self.microwave_amplitude,
-                                                            freq1=self.microwave_frequency,
-                                                            phase1=270,
-                                                            amp2=0.0,
-                                                            freq2=self.microwave_frequency,
-                                                            phase2=0)
+        last_pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                                 increment=0,
+                                                                 amp1=self.microwave_amplitude,
+                                                                 freq1=self.microwave_frequency,
+                                                                 phase1=270,
+                                                                 amp2=0.0,
+                                                                 freq2=self.microwave_frequency,
+                                                                 phase2=0)
 
         pi_x_element = self._get_mw_rf_element(length=self.rabi_period / 2,
                                                increment=0,
@@ -128,7 +128,126 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                 wfm_list2.extend([pihalf_y_element, tauhalf_element])
                 for j in range(pulse_num - 1):
                     wfm_list2.extend([pi_x_element, tau_element])
-                wfm_list2.extend([pi_x_element, tauhalf_element, pihalf_y_inv_element])
+                wfm_list2.extend([pi_x_element, tauhalf_element, last_pihalf_y_inv_element])
+                wfm_list2.extend([laser_element, delay_element, waiting_element])
+
+                name2 = 'CPMGd_%02i' % i
+                blocks, decoupling2 = self._generate_waveform(wfm_list2, name2, tau_array, 1)
+                created_blocks.extend(blocks)
+                created_ensembles.append(decoupling2)
+                sequence_list.append((decoupling2, {'repetitions': 1, 'trigger_wait': 0, 'go_to': 0, 'event_jump_to': 0}))
+
+            i = i + 1
+
+        #---------------------------------------------------------------------------------------------------------------
+        created_sequence = PulseSequence(name=name, ensemble_list=sequence_list, rotating_frame=True)
+
+        created_sequence.measurement_information['alternating'] = True
+        created_sequence.measurement_information['laser_ignore_list'] = list()
+        created_sequence.measurement_information['controlled_variable'] = tau_array
+        created_sequence.measurement_information['units'] = ('s', '')
+        created_sequence.measurement_information['number_of_lasers'] = num_of_points
+        # created_sequence.measurement_information['counting_length'] = self._get_ensemble_count_length(
+        #     ensemble=block_ensemble, created_blocks=created_blocks)
+        # created_sequence.sampling_information = dict()
+
+        created_sequences.append(created_sequence)
+
+        return created_blocks, created_ensembles, created_sequences
+
+    def generate_cpmg_tau_withDC_seq(self, name='cpmg_tau_seq', tau_start=250e-9, tau_step=1.0e-9, num_of_points=5, pulse_num=8, voltage=0, alternating=True):
+        """
+        Generate CPMG dynamical (de)coupling sequence
+        sweeping interpulse spacing, tau
+        Y(pi/2) -- tau/2 -- X(pi) -- tau -- X(pi) -- ... -- X(pi) -- tau/2 -- Y(+/- pi/2)
+        """
+        created_blocks = list()
+        created_ensembles = list()
+        created_sequences = list()
+
+        # get tau array for measurement ticks
+        tau_array = tau_start + np.arange(num_of_points) * tau_step
+
+        # create the static waveform elements
+        waiting_element = self._get_idle_element(length=self.wait_time, increment=0)
+        laser_element = self._get_laser_element(length=self.laser_length, increment=0)
+        delay_element = self._get_delay_element()
+        print(self.rabi_period)
+
+        pihalf_y_element = self._get_mw_rf_element(length=self.rabi_period / 4,
+                                                   increment=0,
+                                                   amp1=self.microwave_amplitude,
+                                                   freq1=self.microwave_frequency,
+                                                   phase1=90,
+                                                   amp2=0.0,
+                                                   freq2=self.microwave_frequency,
+                                                   phase2=0)
+
+        last_pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                             increment=0,
+                                                             amp1=self.microwave_amplitude,
+                                                             freq1=self.microwave_frequency,
+                                                             phase1=90,
+                                                             amp2=0.0,
+                                                             freq2=self.microwave_frequency,
+                                                             phase2=0)
+
+        last_pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                                 increment=0,
+                                                                 amp1=self.microwave_amplitude,
+                                                                 freq1=self.microwave_frequency,
+                                                                 phase1=270,
+                                                                 amp2=0.0,
+                                                                 freq2=self.microwave_frequency,
+                                                                 phase2=0)
+
+        pi_x_element = self._get_mw_rf_element(length=self.rabi_period / 2,
+                                               increment=0,
+                                               amp1=self.microwave_amplitude,
+                                               freq1=self.microwave_frequency,
+                                               phase1=0,
+                                               amp2=0.0,
+                                               freq2=self.microwave_frequency,
+                                               phase2=0)
+
+        sequence_list = []
+        i = 0
+
+        for t in tau_array:
+
+            tauhalf_element_plus = self._get_dc_element(length=t / 2 - self.rabi_period / 4, increment=0, vol1=voltage, vol2=0)
+            tauhalf_element_minus = self._get_dc_element(length=t / 2 - self.rabi_period / 4, increment=0, vol1=-voltage, vol2=0)
+            tau_element_plus = self._get_dc_element(length=t - self.rabi_period / 2, increment=0.0, vol1=voltage, vol2=0)
+            tau_element_minus = self._get_dc_element(length=t - self.rabi_period / 2, increment=0.0, vol1=-voltage, vol2=0)
+
+            tau_elements = {1: tau_element_plus, -1: tau_element_minus}
+            tauhalf_elements = {1: tauhalf_element_plus, -1: tauhalf_element_minus}
+
+            wfm_list = []
+
+            wfm_list.extend([pihalf_y_element, tauhalf_elements[1]])
+            sign = -1
+            for j in range(pulse_num - 1):
+                wfm_list.extend([pi_x_element, tau_elements[sign]])
+                sign *= -1
+            wfm_list.extend([pi_x_element, tauhalf_elements[sign], last_pihalf_y_element])
+            wfm_list.extend([laser_element, delay_element, waiting_element])
+
+            name1 = 'CPMGu_%02i' % i
+            blocks, decoupling = self._generate_waveform(wfm_list, name1, tau_array, 1)
+            created_blocks.extend(blocks)
+            created_ensembles.append(decoupling)
+
+            sequence_list.append((decoupling, {'repetitions': 1, 'trigger_wait': 0, 'go_to': 0, 'event_jump_to': 0}))
+
+            if alternating:
+                wfm_list2 = []
+                wfm_list2.extend([pihalf_y_element, tauhalf_elements[1]])
+                sign = -1
+                for j in range(pulse_num - 1):
+                    wfm_list2.extend([pi_x_element, tau_elements[sign]])
+                    sign *= -1
+                wfm_list2.extend([pi_x_element, tauhalf_elements[sign], last_pihalf_y_inv_element])
                 wfm_list2.extend([laser_element, delay_element, waiting_element])
 
                 name2 = 'CPMGd_%02i' % i
@@ -174,23 +293,32 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
         delay_element = self._get_delay_element()
         print(self.rabi_period)
 
-        pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                        increment=0,
-                                                        amp1=self.microwave_amplitude,
-                                                        freq1=self.microwave_frequency,
-                                                        phase1=90,
-                                                        amp2=0.0,
-                                                        freq2=self.microwave_frequency,
-                                                        phase2=0)
+        pihalf_y_element = self._get_mw_rf_element(length=self.rabi_period / 4,
+                                                   increment=0,
+                                                   amp1=self.microwave_amplitude,
+                                                   freq1=self.microwave_frequency,
+                                                   phase1=90,
+                                                   amp2=0.0,
+                                                   freq2=self.microwave_frequency,
+                                                   phase2=0)
 
-        pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                            increment=0,
-                                                            amp1=self.microwave_amplitude,
-                                                            freq1=self.microwave_frequency,
-                                                            phase1=270,
-                                                            amp2=0.0,
-                                                            freq2=self.microwave_frequency,
-                                                            phase2=0)
+        last_pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                             increment=0,
+                                                             amp1=self.microwave_amplitude,
+                                                             freq1=self.microwave_frequency,
+                                                             phase1=90,
+                                                             amp2=0.0,
+                                                             freq2=self.microwave_frequency,
+                                                             phase2=0)
+
+        last_pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                                 increment=0,
+                                                                 amp1=self.microwave_amplitude,
+                                                                 freq1=self.microwave_frequency,
+                                                                 phase1=270,
+                                                                 amp2=0.0,
+                                                                 freq2=self.microwave_frequency,
+                                                                 phase2=0)
 
         pi_x_element = self._get_mw_rf_element(length=self.rabi_period / 2,
                                                increment=0,
@@ -213,7 +341,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
             wfm_list.extend([pihalf_y_element, tauhalf_element])
             for j in range(Np - 1):
                 wfm_list.extend([pi_x_element, tau_element])
-            wfm_list.extend([pi_x_element, tauhalf_element, pihalf_y_element])
+            wfm_list.extend([pi_x_element, tauhalf_element, last_pihalf_y_element])
             wfm_list.extend([laser_element, delay_element, waiting_element])
 
             name1 = 'CPMG_N_u_N%02i' % i
@@ -228,7 +356,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                 wfm_list2.extend([pihalf_y_element, tauhalf_element])
                 for j in range(Np - 1):
                     wfm_list2.extend([pi_x_element, tau_element])
-                wfm_list2.extend([pi_x_element, tauhalf_element, pihalf_y_inv_element])
+                wfm_list2.extend([pi_x_element, tauhalf_element, last_pihalf_y_inv_element])
                 wfm_list2.extend([laser_element, delay_element, waiting_element])
 
                 name2 = 'CPMG_N_d_N%02i' % i
@@ -283,23 +411,32 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                                                    freq2=self.microwave_frequency,
                                                    phase2=0)
 
-        pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                        increment=0,
-                                                        amp1=self.microwave_amplitude,
-                                                        freq1=self.microwave_frequency,
-                                                        phase1=90,
-                                                        amp2=0.0,
-                                                        freq2=self.microwave_frequency,
-                                                        phase2=0)
+        pihalf_y_element = self._get_mw_rf_element(length=self.rabi_period / 4,
+                                                   increment=0,
+                                                   amp1=self.microwave_amplitude,
+                                                   freq1=self.microwave_frequency,
+                                                   phase1=90,
+                                                   amp2=0.0,
+                                                   freq2=self.microwave_frequency,
+                                                   phase2=0)
 
-        pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                            increment=0,
-                                                            amp1=self.microwave_amplitude,
-                                                            freq1=self.microwave_frequency,
-                                                            phase1=270,
-                                                            amp2=0.0,
-                                                            freq2=self.microwave_frequency,
-                                                            phase2=0)
+        last_pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                             increment=0,
+                                                             amp1=self.microwave_amplitude,
+                                                             freq1=self.microwave_frequency,
+                                                             phase1=90,
+                                                             amp2=0.0,
+                                                             freq2=self.microwave_frequency,
+                                                             phase2=0)
+
+        last_pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                                 increment=0,
+                                                                 amp1=self.microwave_amplitude,
+                                                                 freq1=self.microwave_frequency,
+                                                                 phase1=270,
+                                                                 amp2=0.0,
+                                                                 freq2=self.microwave_frequency,
+                                                                 phase2=0)
 
         pi_x_element = self._get_mw_rf_element(length=self.rabi_period / 2,
                                                increment=0,
@@ -329,7 +466,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
             wfm_list.extend([pihalf_x_element, tauhalf_element])
             for j in range(pluse_num - 1):
                 wfm_list.extend([pi_x_element, tau_element])
-            wfm_list.extend([pi_x_element, tauhalf_element, pihalf_y_element])
+            wfm_list.extend([pi_x_element, tauhalf_element, last_pihalf_y_element])
             wfm_list.extend([laser_element, delay_element, waiting_element])
 
             name1 = 'CPMG_corr_u_N%02i' % i
@@ -349,7 +486,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                 wfm_list2.extend([pihalf_x_element, tauhalf_element])
                 for j in range(pluse_num - 1):
                     wfm_list2.extend([pi_x_element, tau_element])
-                wfm_list2.extend([pi_x_element, tauhalf_element, pihalf_y_inv_element])
+                wfm_list2.extend([pi_x_element, tauhalf_element, last_pihalf_y_inv_element])
                 wfm_list2.extend([laser_element, delay_element, waiting_element])
 
                 name2 = 'CPMG_corr_d_N%02i' % i
@@ -404,23 +541,32 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                                                    freq2=self.microwave_frequency,
                                                    phase2=0)
 
-        pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                        increment=0,
-                                                        amp1=self.microwave_amplitude,
-                                                        freq1=self.microwave_frequency,
-                                                        phase1=90,
-                                                        amp2=0.0,
-                                                        freq2=self.microwave_frequency,
-                                                        phase2=0)
+        pihalf_y_element = self._get_mw_rf_element(length=self.rabi_period / 4,
+                                                   increment=0,
+                                                   amp1=self.microwave_amplitude,
+                                                   freq1=self.microwave_frequency,
+                                                   phase1=90,
+                                                   amp2=0.0,
+                                                   freq2=self.microwave_frequency,
+                                                   phase2=0)
 
-        pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                            increment=0,
-                                                            amp1=self.microwave_amplitude,
-                                                            freq1=self.microwave_frequency,
-                                                            phase1=270,
-                                                            amp2=0.0,
-                                                            freq2=self.microwave_frequency,
-                                                            phase2=0)
+        last_pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                             increment=0,
+                                                             amp1=self.microwave_amplitude,
+                                                             freq1=self.microwave_frequency,
+                                                             phase1=90,
+                                                             amp2=0.0,
+                                                             freq2=self.microwave_frequency,
+                                                             phase2=0)
+
+        last_pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                                 increment=0,
+                                                                 amp1=self.microwave_amplitude,
+                                                                 freq1=self.microwave_frequency,
+                                                                 phase1=270,
+                                                                 amp2=0.0,
+                                                                 freq2=self.microwave_frequency,
+                                                                 phase2=0)
 
         pi_x_element = self._get_mw_rf_element(length=self.rabi_period / 2,
                                                increment=0,
@@ -450,7 +596,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
             wfm_list.extend([pihalf_x_element, tauhalf_element])
             for j in range(pluse_num - 1):
                 wfm_list.extend([pi_x_element, tau_element])
-            wfm_list.extend([pi_x_element, tauhalf_element, pihalf_y_element])
+            wfm_list.extend([pi_x_element, tauhalf_element, last_pihalf_y_element])
             wfm_list.extend([laser_element, delay_element, waiting_element])
 
             name1 = 'CPMG_corr_flip_u_N%02i' % i
@@ -470,7 +616,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                 wfm_list2.extend([pihalf_x_element, tauhalf_element])
                 for j in range(pluse_num - 1):
                     wfm_list2.extend([pi_x_element, tau_element])
-                wfm_list2.extend([pi_x_element, tauhalf_element, pihalf_y_inv_element])
+                wfm_list2.extend([pi_x_element, tauhalf_element, last_pihalf_y_inv_element])
                 wfm_list2.extend([laser_element, delay_element, waiting_element])
 
                 name2 = 'CPMG_corr_flip_d_N%02i' % i
@@ -526,23 +672,32 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                                                    freq2=self.microwave_frequency,
                                                    phase2=0)
 
-        pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                        increment=0,
-                                                        amp1=self.microwave_amplitude,
-                                                        freq1=self.microwave_frequency,
-                                                        phase1=90,
-                                                        amp2=0.0,
-                                                        freq2=self.microwave_frequency,
-                                                        phase2=0)
+        pihalf_y_element = self._get_mw_rf_element(length=self.rabi_period / 4,
+                                                   increment=0,
+                                                   amp1=self.microwave_amplitude,
+                                                   freq1=self.microwave_frequency,
+                                                   phase1=90,
+                                                   amp2=0.0,
+                                                   freq2=self.microwave_frequency,
+                                                   phase2=0)
 
-        pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                            increment=0,
-                                                            amp1=self.microwave_amplitude,
-                                                            freq1=self.microwave_frequency,
-                                                            phase1=270,
-                                                            amp2=0.0,
-                                                            freq2=self.microwave_frequency,
-                                                            phase2=0)
+        last_pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                             increment=0,
+                                                             amp1=self.microwave_amplitude,
+                                                             freq1=self.microwave_frequency,
+                                                             phase1=90,
+                                                             amp2=0.0,
+                                                             freq2=self.microwave_frequency,
+                                                             phase2=0)
+
+        last_pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                                 increment=0,
+                                                                 amp1=self.microwave_amplitude,
+                                                                 freq1=self.microwave_frequency,
+                                                                 phase1=270,
+                                                                 amp2=0.0,
+                                                                 freq2=self.microwave_frequency,
+                                                                 phase2=0)
 
         pi_x_element = self._get_mw_rf_element(length=self.rabi_period / 2,
                                                increment=0,
@@ -580,7 +735,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
             wfm_list.extend([pi_x_inv_element, tauhalf_element])
             for j in range(pluse_num - 1):
                 wfm_list.extend([pi_x_element, tau_element])
-            wfm_list.extend([pi_x_element, tauhalf_element, pihalf_y_inv_element])
+            wfm_list.extend([pi_x_element, tauhalf_element, last_pihalf_y_inv_element])
             wfm_list.extend([laser_element, delay_element, waiting_element])
 
             name1 = 'PolTransfer_u_N%02i' % i
@@ -601,7 +756,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                 wfm_list2.extend([pi_x_inv_element, tauhalf_element])
                 for j in range(pluse_num - 1):
                     wfm_list2.extend([pi_x_element, tau_element])
-                wfm_list2.extend([pi_x_element, tauhalf_element, pihalf_y_element])
+                wfm_list2.extend([pi_x_element, tauhalf_element, last_pihalf_y_element])
                 wfm_list2.extend([laser_element, delay_element, waiting_element])
 
                 name2 = 'PolTransfer_d_N%02i' % i
@@ -655,23 +810,32 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                                                    freq2=self.microwave_frequency,
                                                    phase2=0)
 
-        pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                        increment=0,
-                                                        amp1=self.microwave_amplitude,
-                                                        freq1=self.microwave_frequency,
-                                                        phase1=90,
-                                                        amp2=0.0,
-                                                        freq2=self.microwave_frequency,
-                                                        phase2=0)
+        pihalf_y_element = self._get_mw_rf_element(length=self.rabi_period / 4,
+                                                   increment=0,
+                                                   amp1=self.microwave_amplitude,
+                                                   freq1=self.microwave_frequency,
+                                                   phase1=90,
+                                                   amp2=0.0,
+                                                   freq2=self.microwave_frequency,
+                                                   phase2=0)
 
-        pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                            increment=0,
-                                                            amp1=self.microwave_amplitude,
-                                                            freq1=self.microwave_frequency,
-                                                            phase1=270,
-                                                            amp2=0.0,
-                                                            freq2=self.microwave_frequency,
-                                                            phase2=0)
+        last_pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                             increment=0,
+                                                             amp1=self.microwave_amplitude,
+                                                             freq1=self.microwave_frequency,
+                                                             phase1=90,
+                                                             amp2=0.0,
+                                                             freq2=self.microwave_frequency,
+                                                             phase2=0)
+
+        last_pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                                 increment=0,
+                                                                 amp1=self.microwave_amplitude,
+                                                                 freq1=self.microwave_frequency,
+                                                                 phase1=270,
+                                                                 amp2=0.0,
+                                                                 freq2=self.microwave_frequency,
+                                                                 phase2=0)
 
         pi_x_element = self._get_mw_rf_element(length=self.rabi_period / 2,
                                                increment=0,
@@ -709,7 +873,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
             wfm_list.extend([pi_x_inv_element, tauhalf_element])
             for j in range(pluse_num - 1):
                 wfm_list.extend([pi_x_element, tau_element])
-            wfm_list.extend([pi_x_element, tauhalf_element, pihalf_y_inv_element])
+            wfm_list.extend([pi_x_element, tauhalf_element, last_pihalf_y_inv_element])
             wfm_list.extend([laser_element, delay_element, waiting_element])
 
             name1 = 'PolTransfer_tcorr_u_N%02i' % i
@@ -730,7 +894,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                 wfm_list2.extend([pi_x_inv_element, tauhalf_element])
                 for j in range(pluse_num - 1):
                     wfm_list2.extend([pi_x_element, tau_element])
-                wfm_list2.extend([pi_x_element, tauhalf_element, pihalf_y_element])
+                wfm_list2.extend([pi_x_element, tauhalf_element, last_pihalf_y_element])
                 wfm_list2.extend([laser_element, delay_element, waiting_element])
 
                 name2 = 'PolTransfer_tcorr_d_N%02i' % i
@@ -784,23 +948,32 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                                                    freq2=self.microwave_frequency,
                                                    phase2=0)
 
-        pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                        increment=0,
-                                                        amp1=self.microwave_amplitude,
-                                                        freq1=self.microwave_frequency,
-                                                        phase1=90,
-                                                        amp2=0.0,
-                                                        freq2=self.microwave_frequency,
-                                                        phase2=0)
+        pihalf_y_element = self._get_mw_rf_element(length=self.rabi_period / 4,
+                                                   increment=0,
+                                                   amp1=self.microwave_amplitude,
+                                                   freq1=self.microwave_frequency,
+                                                   phase1=90,
+                                                   amp2=0.0,
+                                                   freq2=self.microwave_frequency,
+                                                   phase2=0)
 
-        pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                            increment=0,
-                                                            amp1=self.microwave_amplitude,
-                                                            freq1=self.microwave_frequency,
-                                                            phase1=270,
-                                                            amp2=0.0,
-                                                            freq2=self.microwave_frequency,
-                                                            phase2=0)
+        last_pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                             increment=0,
+                                                             amp1=self.microwave_amplitude,
+                                                             freq1=self.microwave_frequency,
+                                                             phase1=90,
+                                                             amp2=0.0,
+                                                             freq2=self.microwave_frequency,
+                                                             phase2=0)
+
+        last_pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                                 increment=0,
+                                                                 amp1=self.microwave_amplitude,
+                                                                 freq1=self.microwave_frequency,
+                                                                 phase1=270,
+                                                                 amp2=0.0,
+                                                                 freq2=self.microwave_frequency,
+                                                                 phase2=0)
 
         pi_x_element = self._get_mw_rf_element(length=self.rabi_period / 2,
                                                increment=0,
@@ -838,7 +1011,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
             wfm_list.extend([pi_x_inv_element, tauhalf_element])
             for j in range(pluse_num - 1):
                 wfm_list.extend([pi_x_element, tau_element])
-            wfm_list.extend([pi_x_element, tauhalf_element, pihalf_y_inv_element])
+            wfm_list.extend([pi_x_element, tauhalf_element, last_pihalf_y_inv_element])
             wfm_list.extend([laser_element, delay_element, waiting_element])
 
             name1 = 'PolTransfer_tau_u_N%02i' % i
@@ -859,7 +1032,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                 wfm_list2.extend([pi_x_inv_element, tauhalf_element])
                 for j in range(pluse_num - 1):
                     wfm_list2.extend([pi_x_element, tau_element])
-                wfm_list2.extend([pi_x_element, tauhalf_element, pihalf_y_element])
+                wfm_list2.extend([pi_x_element, tauhalf_element, last_pihalf_y_element])
                 wfm_list2.extend([laser_element, delay_element, waiting_element])
 
                 name2 = 'PolTransfer_tau_d_N%02i' % i
@@ -913,23 +1086,32 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                                                    freq2=self.microwave_frequency,
                                                    phase2=0)
 
-        pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                        increment=0,
-                                                        amp1=self.microwave_amplitude,
-                                                        freq1=self.microwave_frequency,
-                                                        phase1=90,
-                                                        amp2=0.0,
-                                                        freq2=self.microwave_frequency,
-                                                        phase2=0)
+        pihalf_y_element = self._get_mw_rf_element(length=self.rabi_period / 4,
+                                                   increment=0,
+                                                   amp1=self.microwave_amplitude,
+                                                   freq1=self.microwave_frequency,
+                                                   phase1=90,
+                                                   amp2=0.0,
+                                                   freq2=self.microwave_frequency,
+                                                   phase2=0)
 
-        pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
-                                                            increment=0,
-                                                            amp1=self.microwave_amplitude,
-                                                            freq1=self.microwave_frequency,
-                                                            phase1=270,
-                                                            amp2=0.0,
-                                                            freq2=self.microwave_frequency,
-                                                            phase2=0)
+        last_pihalf_y_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                             increment=0,
+                                                             amp1=self.microwave_amplitude,
+                                                             freq1=self.microwave_frequency,
+                                                             phase1=90,
+                                                             amp2=0.0,
+                                                             freq2=self.microwave_frequency,
+                                                             phase2=0)
+
+        last_pihalf_y_inv_element = self._get_mw_rf_gate_element(length=self.rabi_period / 4,
+                                                                 increment=0,
+                                                                 amp1=self.microwave_amplitude,
+                                                                 freq1=self.microwave_frequency,
+                                                                 phase1=270,
+                                                                 amp2=0.0,
+                                                                 freq2=self.microwave_frequency,
+                                                                 phase2=0)
 
         pi_x_element = self._get_mw_rf_element(length=self.rabi_period / 2,
                                                increment=0,
@@ -967,7 +1149,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
             wfm_list.extend([pi_x_inv_element, tauhalf_element])
             for j in range(N - 1):
                 wfm_list.extend([pi_x_element, tau_element])
-            wfm_list.extend([pi_x_element, tauhalf_element, pihalf_y_inv_element])
+            wfm_list.extend([pi_x_element, tauhalf_element, last_pihalf_y_inv_element])
             wfm_list.extend([laser_element, delay_element, waiting_element])
 
             name1 = 'PolTransfer_tau_u_N%02i' % i
@@ -988,7 +1170,7 @@ class PolarizationTransferGenerator(PredefinedGeneratorBase):
                 wfm_list2.extend([pi_x_inv_element, tauhalf_element])
                 for j in range(N - 1):
                     wfm_list2.extend([pi_x_element, tau_element])
-                wfm_list2.extend([pi_x_element, tauhalf_element, pihalf_y_element])
+                wfm_list2.extend([pi_x_element, tauhalf_element, last_pihalf_y_element])
                 wfm_list2.extend([laser_element, delay_element, waiting_element])
 
                 name2 = 'PolTransfer_tau_d_N%02i' % i
