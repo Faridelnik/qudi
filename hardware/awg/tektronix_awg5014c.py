@@ -320,6 +320,7 @@ class AWG5014C(Base, PulserInterface):
 
         self.__loaded_sequence = ''
         # return self.get_loaded_assets()
+        print(load_dict)
         return load_dict[1]
 
     def load_sequence(self, sequence_name):

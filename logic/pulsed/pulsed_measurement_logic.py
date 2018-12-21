@@ -1250,10 +1250,10 @@ class PulsedMeasurementLogic(GenericLogic):
         x_axis_scaled = self.signal_data[0] / scaled_float.scale_val
 
         # Create the figure object
-        if self._alternative_data_type:
-            fig, (ax1, ax2) = plt.subplots(2, 1)
-        else:
+        if self._alternative_data_type == 'None':
             fig, ax1 = plt.subplots()
+        else:
+            fig, (ax1, ax2) = plt.subplots(2, 1)
 
         if with_error:
             ax1.errorbar(x=x_axis_scaled, y=self.signal_data[1],
@@ -1338,7 +1338,7 @@ class PulsedMeasurementLogic(GenericLogic):
                 is_first_column = False
 
         # handle the save of the alternative data plot
-        if self._alternative_data_type:
+        if self._alternative_data_type != 'None':
 
             # scale the x_axis for plotting
             max_val = np.max(self.signal_alt_data[0])

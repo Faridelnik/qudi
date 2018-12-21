@@ -198,9 +198,9 @@ class NVdepthGui(GUIBase):
             self.counts2[i] = np.asarray(a[i].split(), dtype=np.float32)[2]
             self.error2[i] = np.asarray(a[i].split(), dtype=np.float32)[4]
 
-        self.time = self.time[np.where(self.time <= 268*1e-9)]
-        self.counts1 = self.counts1[np.where(self.time <= 268*1e-9)]
-        self.counts2 = self.counts2[np.where(self.time <= 268*1e-9)]
+        #self.time = self.time[np.where(self.time >= 268*1e-9)]
+        #self.counts1 = self.counts1[np.where(self.time >= 268*1e-9)]
+        #self.counts2 = self.counts2[np.where(self.time >= 268*1e-9)]
 
         self.data_image1 = pg.PlotDataItem(self.time*1e+9,
                                      self.counts1,
@@ -563,14 +563,16 @@ class NVdepthGui(GUIBase):
 
         rho_H = 5 * 1e+28  # m^(-3), density of protons
         # rho_B11 = 2.1898552552552544e+28  # m^(-3), density of B11
+        rho_F19 = 4.905e+28 # in CaF2
+        mu_F19 = 4.0052 / 4.2576 * 1.4106067 * 1e-26  # Fluoria magnetic moment, J/Tesla
 
         mu_p = 1.41060674333 * 1e-26  # proton magneton, J/T
         g_B11 = 85.847004 * 1e+6 / (2 * np.pi)  # Hz/T
         hbar = 1.054571800e-34  # J*s
         # mu_B11 = hbar * g_B11 * 2 * np.pi  # for central transition
 
-        rho = rho_H
-        mu = mu_p
+        rho = rho_F19
+        mu = mu_F19
 
         g = 2 * np.pi * 2.8 * 1e+10  # rad/s/T
         mu0 = 4 * np.pi * 1e-7  # vacuum permeability, H/m or T*m/A

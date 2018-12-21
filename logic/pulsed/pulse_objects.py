@@ -1162,6 +1162,7 @@ class PredefinedGeneratorBase:
                 amplitude=amp2,
                 frequency=freq2,
                 phase=phase2)
+            mw_element.digital_high['d_ch4'] = True
 
         return mw_element
 
@@ -1304,6 +1305,46 @@ class PredefinedGeneratorBase:
             mw_laser_element.pulse_function[self.laser_channel] = SamplingFunctions.DC(
                 voltage=self.analog_trigger_voltage)
         return mw_laser_element
+
+    def _get_mw_rf_laser_element(self, length, increment, amp1=None, freq1=None, phase1=None,
+                           amp2=None, freq2=None, phase2=None):
+        """
+        Creates a MW pulse PulseBlockElement
+
+        @param float length: MW pulse duration in seconds
+        @param float increment: MW pulse duration increment in seconds
+        @param float freq: MW frequency in case of analogue MW channel in Hz
+        @param float amp: MW amplitude in case of analogue MW channel in V
+        @param float phase: MW phase in case of analogue MW channel in deg
+
+        @return: PulseBlockElement, the generated MW element
+        """
+        if self.microwave_channel.startswith('d'):
+            mw_element = self._get_trigger_element(
+                length=length,
+                increment=increment,
+                channels=self.microwave_channel)
+        else:
+            mw_element = self._get_idle_element(
+                length=length,
+                increment=increment)
+            mw_element.pulse_function['a_ch1'] = SamplingFunctions.Sin(
+                amplitude=amp1,
+                frequency=freq1,
+                phase=phase1)
+            mw_element.pulse_function['a_ch2'] = SamplingFunctions.Sin(
+                amplitude=amp2,
+                frequency=freq2,
+                phase=phase2)
+            mw_element.digital_high['d_ch4'] = True
+
+            if self.laser_channel.startswith('d'):
+                mw_element.digital_high[self.laser_channel] = True
+            else:
+                mw_element.pulse_function[self.laser_channel] = SamplingFunctions.DC(
+                    voltage=self.analog_trigger_voltage)
+
+        return mw_element
 
     def _get_readout_element(self):
 
